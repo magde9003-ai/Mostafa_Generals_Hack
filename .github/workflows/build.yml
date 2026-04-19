@@ -6,12 +6,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup MSVC
+      - name: Setup MSVC (32-bit)
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
 
       - name: Compile
         run: |
-          cl.exe /MT /O2 main.cpp user32.lib gdi32.lib /Fe:Mostafa_Scanner.exe /link /SUBSYSTEM:WINDOWS,5.01
+          cl.exe /MT /O2 main.cpp user32.lib gdi32.lib /Fe:Mostafa_Scanner.exe /link /SUBSYSTEM:WINDOWS,5.01 /MACHINE:X86
 
       - name: Upload
         uses: actions/upload-artifact@v4

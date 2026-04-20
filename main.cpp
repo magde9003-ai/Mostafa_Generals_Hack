@@ -18,7 +18,7 @@ std::vector<DWORD> pids;
 
 void ScanUnits() {
     if(!hProcess) {
-        MessageBoxA(NULL, "Please Select Game (generals.exe) First!", "Warning", MB_ICONWARNING);
+        MessageBoxA(NULL, "Select Game (generals.exe) First!", "Warning", MB_ICONWARNING);
         return;
     }
     SendMessageA(hListBox, LB_RESETCONTENT, 0, 0);
@@ -36,23 +36,24 @@ void ScanUnits() {
         ReadProcessMemory(hProcess, (LPCVOID)(addr + 0x44), &team, 4, NULL);
         ReadProcessMemory(hProcess, (LPCVOID)(addr + 0xC0), &hp, 4, NULL);
 
-        if(team != myTeam && hp > 0 && hash == HASH_BLACK_LOTUS) {
+        if(hash == HASH_BLACK_LOTUS && team != myTeam && hp > 0) {
             ReadProcessMemory(hProcess, (LPCVOID)(addr + 0x3C), &px, 4, NULL);
             ReadProcessMemory(hProcess, (LPCVOID)(addr + 0x40), &py, 4, NULL);
-            std::string msg = "LOTUS FOUND! AT: X=" + std::to_string((int)px) + " Y=" + std::to_string((int)py);
+            std::string msg = "LOTUS AT: X=" + std::to_string((int)px) + " Y=" + std::to_string((int)py);
             SendMessageA(hListBox, LB_ADDSTRING, 0, (LPARAM)msg.c_str());
             Beep(800, 200);
             foundCount++;
         }
     }
-    if(foundCount == 0) SendMessageA(hListBox, LB_ADDSTRING, 0, (LPARAM)"No Black Lotus detected yet.");
+    if(foundCount == 0) SendMessageA(hListBox, LB_ADDSTRING, 0, (LPARAM)"Nothing Found.");
 }
 
 void RefreshProcesses() {
     SendMessageA(hProcessList, LB_RESETCONTENT, 0, 0);
     pids.clear();
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    PROCESSENTRY32 entry = {sizeof(entry)};
+    PROCESSENTRY32 entry;
+    entry.dwSize = sizeof(entry);
     if (Process32First(snapshot, &entry)) {
         do {
             SendMessageA(hProcessList, LB_ADDSTRING, 0, (LPARAM)entry.szExeFile);
@@ -63,39 +64,37 @@ void RefreshProcesses() {
 }
 
 LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    switch(msg) {
-        case WM_CREATE:
-            CreateWindowA("STATIC", "1. Select 'generals.exe':", WS_VISIBLE|WS_CHILD, 10, 5, 260, 20, hwnd, 0, 0, 0);
-            hProcessList = CreateWindowA("LISTBOX", "", WS_VISIBLE|WS_CHILD|WS_BORDER|WS_VSCROLL|LBS_NOTIFY, 10, 25, 260, 150, hwnd, 0, 0, 0);
-            CreateWindowA("BUTTON", "STEP 1: ATTACH GAME", WS_VISIBLE|WS_CHILD, 10, 180, 260, 35, hwnd, (HMENU)2, 0, 0);
-            
-            CreateWindowA("STATIC", "2. Radar Status:", WS_VISIBLE|WS_CHILD, 10, 225, 260, 20, hwnd, 0, 0, 0);
-            hListBox = CreateWindowA("LISTBOX", "", WS_VISIBLE|WS_CHILD|WS_BORDER|WS_VSCROLL, 10, 245, 260, 100, hwnd, 0, 0, 0);
-            CreateWindowA("BUTTON", "STEP 2: SCAN FOR LOTUS", WS_VISIBLE|WS_CHILD, 10, 355, 260, 45, hwnd, (HMENU)1, 0, 0);
-            RefreshProcesses();
-            break;
-        case WM_COMMAND:
-            if(LOWORD(wp) == 1) ScanUnits();
-            if(LOWORD(wp) == 2) {
-                int sel = (int)SendMessageA(hProcessList, LB_GETCURSEL, 0, 0);
-                if(sel != LB_ERR) {
-                    if(hProcess) CloseHandle(hProcess);
-                    hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pids[sel]);
-                    MessageBoxA(hwnd, "Connected Successfully!", "Success", MB_OK);
-                }
+    if(msg == WM_CREATE) {
+        hProcessList = CreateWindowA("LISTBOX", "", WS_VISIBLE|WS_CHILD|WS_BORDER|WS_VSCROLL, 10, 10, 260, 150, hwnd, 0, 0, 0);
+        CreateWindowA("BUTTON", "1. ATTACH GAME", WS_VISIBLE|WS_CHILD, 10, 170, 260, 35, hwnd, (HMENU)2, 0, 0);
+        hListBox = CreateWindowA("LISTBOX", "", WS_VISIBLE|WS_CHILD|WS_BORDER|WS_VSCROLL, 10, 215, 260, 100, hwnd, 0, 0, 0);
+        CreateWindowA("BUTTON", "2. SCAN LOTUS", WS_VISIBLE|WS_CHILD, 10, 325, 260, 40, hwnd, (HMENU)1, 0, 0);
+        RefreshProcesses();
+    } else if(msg == WM_COMMAND) {
+        if(LOWORD(wp) == 1) ScanUnits();
+        if(LOWORD(wp) == 2) {
+            int sel = (int)SendMessageA(hProcessList, LB_GETCURSEL, 0, 0);
+            if(sel != LB_ERR) {
+                if(hProcess) CloseHandle(hProcess);
+                hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pids[sel]);
+                MessageBoxA(hwnd, "Connected!", "Done", MB_OK);
             }
-            break;
-        case WM_DESTROY: PostQuitMessage(0); break;
-        default: return DefWindowProcA(hwnd, msg, wp, lp);
-    }
-    return 0;
+        }
+    } else if(msg == WM_DESTROY) { PostQuitMessage(0); }
+    return DefWindowProcA(hwnd, msg, wp, lp);
 }
 
 int WINAPI WinMain(HINSTANCE h, HINSTANCE, LPSTR, int s) {
     InitCommonControls();
-    WNDCLASSA wc = {0}; wc.lpfnWndProc = WinProc; wc.hInstance = h; wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE+1);
-    wc.lpszClassName = "MostafaFinalEN"; wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = WinProc;
+    wc.hInstance = h;
+    wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE+1);
+    wc.lpszClassName = "MostafaRadarV3";
     RegisterClassA(&wc);
-    HWND main = CreateWindowA("MostafaFinalEN", "Mostafa Generals Scanner v2.1", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, 200, 200, 300, 450, 0, 0, h, 0);
+    HWND main = CreateWindowA("MostafaRadarV3", "Mostafa Radar V3", WS_OVERLAPPEDWINDOW, 200, 200, 300, 420, 0, 0, h, 0);
     ShowWindow(main, s);
-    MSG m; while(GetMessage
+    MSG m;
+    while(GetMessageA(&m, 0, 0, 0)) { TranslateMessage(&m); DispatchMessageA(&m); }
+    return 0;
+}

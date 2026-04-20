@@ -11,6 +11,7 @@ HANDLE hProcess = NULL;
 HWND hListBox;
 
 void ScanUnits() {
+    if(!hProcess) return;
     SendMessage(hListBox, LB_RESETCONTENT, 0, 0);
     DWORD count = 0, start = 0, myTeam = 0;
     ReadProcessMemory(hProcess, (LPCVOID)ADDR_UNIT_COUNT, &count, 4, NULL);
@@ -28,7 +29,7 @@ void ScanUnits() {
         if(team != myTeam && hp > 0 && hash == HASH_BLACK_LOTUS) {
             ReadProcessMemory(hProcess, (LPCVOID)(addr + 0x3C), &px, 4, NULL);
             ReadProcessMemory(hProcess, (LPCVOID)(addr + 0x40), &py, 4, NULL);
-            std::string msg = "!! لوتس !! الموقع: " + std::to_string((int)px) + " , " + std::to_string((int)py);
+            std::string msg = "LOTUS Found at: " + std::to_string((int)px) + " , " + std::to_string((int)py);
             SendMessageA(hListBox, LB_ADDSTRING, 0, (LPARAM)msg.c_str());
             Beep(750, 300);
         }
@@ -37,7 +38,7 @@ void ScanUnits() {
 
 LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if(msg == WM_CREATE) {
-        CreateWindowA("BUTTON", "فحص لوتس", WS_VISIBLE|WS_CHILD, 10, 10, 130, 35, hwnd, (HMENU)1, 0, 0);
+        CreateWindowA("BUTTON", "SCAN LOTUS", WS_VISIBLE|WS_CHILD, 10, 10, 130, 35, hwnd, (HMENU)1, 0, 0);
         hListBox = CreateWindowA("LISTBOX", "", WS_VISIBLE|WS_CHILD|WS_BORDER|WS_VSCROLL, 10, 55, 260, 150, hwnd, 0, 0, 0);
     } else if(msg == WM_COMMAND && LOWORD(wp) == 1) { ScanUnits(); }
     else if(msg == WM_DESTROY) { PostQuitMessage(0); }
@@ -45,15 +46,22 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 int WINAPI WinMain(HINSTANCE h, HINSTANCE, LPSTR, int s) {
-    HWND gWnd = FindWindowA(NULL, "Command & Conquer™ Generals Zero Hour");
-    if(!gWnd) { MessageBoxA(0, "شغل اللعبة يا مصطفى!", "خطأ", 0); return 0; }
+    // محاولة إيجاد اللعبة بأكثر من طريقة
+    HWND gWnd = FindWindowA("GameWindow", NULL);
+    if(!gWnd) gWnd = FindWindowA(NULL, "Command & Conquer (TM) Generals Zero Hour");
+    if(!gWnd) gWnd = FindWindowA(NULL, "Command & Conquer™ Generals Zero Hour");
+
+    if(!gWnd) {
+        MessageBoxA(0, "Game NOT Found! Open the Game First.", "Error", 0);
+        return 0;
+    }
+
     DWORD pid; GetWindowThreadProcessId(gWnd, &pid);
     hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
     WNDCLASSA wc = {0}; wc.lpfnWndProc = WinProc; wc.hInstance = h; wc.lpszClassName = "Mostafa_Hack";
     RegisterClassA(&wc);
-    HWND main = CreateWindowA("Mostafa_Hack", "Mostafa Hack - ZH", WS_OVERLAPPEDWINDOW, 200, 200, 300, 260, 0, 0, h, 0);
+    HWND main = CreateWindowA("Mostafa_Hack", "Mostafa ZH Scanner", WS_OVERLAPPEDWINDOW, 200, 200, 300, 260, 0, 0, h, 0);
     ShowWindow(main, s);
     MSG m; while(GetMessage(&m, 0, 0, 0)) { TranslateMessage(&m); DispatchMessage(&m); }
     return 0;
 }
-
